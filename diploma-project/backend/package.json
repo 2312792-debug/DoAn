@@ -1,0 +1,23 @@
+{
+  "name": "diploma-backend",
+  "version": "1.0.0",
+  "private": true,
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js",
+    "test": "node test/crypto.test.js && node test/signature.test.js"
+  },
+  "dependencies": {
+    "axios": "^1.7.2",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "express": "^4.19.2",
+    "form-data": "^4.0.0",
+    "multer": "^2.0.0",
+    "ethers": "^6.13.1"
+  },
+  "optionalDependencies": {
+    "better-sqlite3": "^11.5.0"
+  }
+}

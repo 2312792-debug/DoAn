@@ -1,0 +1,29 @@
+services:
+  backend:
+    build: ./backend
+    ports:
+      - "4000:4000"
+    environment:
+      PORT: 4000
+      PINATA_JWT: ${PINATA_JWT}
+      FRONTEND_ORIGIN: http://localhost:5173
+      PINATA_GATEWAY: ${PINATA_GATEWAY:-https://gateway.pinata.cloud/ipfs}
+      FILE_ENC_MASTER_KEY: ${FILE_ENC_MASTER_KEY}
+      SIGNING_PRIVATE_KEY: ${SIGNING_PRIVATE_KEY:-}
+      CONTRACT_INFO_PATH: /app/contractInfo.json
+      DB_PATH: /app/data/diploma.db
+    volumes:
+      - ./frontend/src/contractInfo.json:/app/contractInfo.json:ro
+      - ./backend/data:/app/data
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        VITE_BACKEND_URL: http://localhost:4000
+    ports:
+      - "5173:80"
+    depends_on:
+      - backend
+    restart: unless-stopped
