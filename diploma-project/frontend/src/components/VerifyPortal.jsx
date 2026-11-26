@@ -464,9 +464,11 @@ export default function VerifyPortal({ qrDiplomaId = "" }) {
           KẾT QUẢ XÁC MINH
         </div>
 
-        <h3 style={result.statusNum === 2 ? { color: "#dc2626" } : undefined}>
+        <h3 style={result.statusNum === 2 || result.statusNum === 0 ? { color: "#dc2626" } : undefined}>
           {result.statusNum === 2
             ? "Văn bằng đã bị thu hồi"
+            : result.statusNum === 0
+            ? "Văn bằng không tồn tại"
             : result.isValid
             ? "Văn bằng hợp lệ"
             : "Văn bằng không hợp lệ"}
@@ -475,6 +477,8 @@ export default function VerifyPortal({ qrDiplomaId = "" }) {
         <p>
           {result.isValid
             ? "File PDF khớp với dữ liệu được ghi nhận trên Blockchain."
+            : result.statusNum === 0
+            ? "Không tìm thấy văn bằng nào trên Blockchain khớp với thông tin đã nhập (trạng thái: Chưa phát hành)."
             : result.statusNum === 2 && !result.hashMatches
             ? "Văn bằng đã bị thu hồi VÀ file không khớp bản gốc — có dấu hiệu giả mạo trên văn bằng đã thu hồi."
             : result.statusNum === 2
@@ -490,12 +494,18 @@ export default function VerifyPortal({ qrDiplomaId = "" }) {
           result.isValid ? "badge-valid" : "badge-invalid"
         }`}
         style={
-          result.statusNum === 2
+          result.statusNum === 2 || result.statusNum === 0
             ? { background: "#fee2e2", color: "#dc2626", border: "1px solid #fca5a5", fontWeight: "bold" }
             : undefined
         }
       >
-        {result.statusNum === 2 ? "ĐÃ THU HỒI" : result.isValid ? "HỢP LỆ" : "KHÔNG HỢP LỆ"}
+        {result.statusNum === 2
+          ? "ĐÃ THU HỒI"
+          : result.statusNum === 0
+          ? "KHÔNG TỒN TẠI"
+          : result.isValid
+          ? "HỢP LỆ"
+          : "KHÔNG HỢP LỆ"}
       </div>
     </div>
 
@@ -539,7 +549,7 @@ export default function VerifyPortal({ qrDiplomaId = "" }) {
           <span>Trạng thái</span>
           <strong
             style={
-              result.statusNum === 2
+              result.statusNum === 2 || result.statusNum === 0
                 ? { color: "#dc2626", fontWeight: "bold" }
                 : { color: "#16a34a" }
             }
@@ -564,11 +574,11 @@ export default function VerifyPortal({ qrDiplomaId = "" }) {
       <div className="verification-checks">
         <div
           className={`verification-check ${
-            result.hashMatches ? "check-success" : "check-failed"
+            result.statusNum !== 0 && result.hashMatches ? "check-success" : "check-failed"
           }`}
         >
           <span className="check-icon">
-            {result.hashMatches ? (
+            {result.statusNum !== 0 && result.hashMatches ? (
               <Check size={15} strokeWidth={3} />
             ) : (
               <AlertTriangle size={15} strokeWidth={2.5} />
@@ -578,7 +588,9 @@ export default function VerifyPortal({ qrDiplomaId = "" }) {
           <div>
             <strong>Đối chiếu file PDF</strong>
             <span>
-              {result.hashMatches
+              {result.statusNum === 0
+                ? "Chưa có dữ liệu văn bằng trên Blockchain để đối chiếu với file PDF này"
+                : result.hashMatches
                 ? "Đây đúng là file gốc — hash khớp với dữ liệu đã lưu trên Blockchain"
                 : "File này KHÔNG khớp bản gốc — có dấu hiệu đã bị chỉnh sửa/giả mạo"}
             </span>
@@ -587,16 +599,14 @@ export default function VerifyPortal({ qrDiplomaId = "" }) {
 
         <div
           className={`verification-check ${
-            result.statusNum === 2
-              ? "check-failed"
-              : "check-success"
+            result.statusNum === 1 ? "check-success" : "check-failed"
           }`}
         >
           <span className="check-icon">
-            {result.statusNum === 2 ? (
-              <AlertTriangle size={15} strokeWidth={2.5} />
-            ) : (
+            {result.statusNum === 1 ? (
               <Check size={15} strokeWidth={3} />
+            ) : (
+              <AlertTriangle size={15} strokeWidth={2.5} />
             )}
           </span>
 
@@ -608,15 +618,25 @@ export default function VerifyPortal({ qrDiplomaId = "" }) {
           </div>
         </div>
 
-        <div className="verification-check check-success">
+        <div
+          className={`verification-check ${
+            result.statusNum !== 0 ? "check-success" : "check-failed"
+          }`}
+        >
           <span className="check-icon">
-            <Check size={15} strokeWidth={3} />
+            {result.statusNum !== 0 ? (
+              <Check size={15} strokeWidth={3} />
+            ) : (
+              <AlertTriangle size={15} strokeWidth={2.5} />
+            )}
           </span>
 
           <div>
             <strong>Blockchain</strong>
             <span>
-              Dữ liệu được xác thực trên Polygon Amoy
+              {result.statusNum !== 0
+                ? "Dữ liệu được xác thực trên Polygon Amoy"
+                : "Không tìm thấy bản ghi văn bằng này trên Polygon Amoy"}
             </span>
           </div>
         </div>
@@ -677,7 +697,7 @@ export default function VerifyPortal({ qrDiplomaId = "" }) {
             title={result.issuer}
             className="mono-value"
           >
-            {shortenAddress(result.issuer)}
+            {result.statusNum === 0 ? "—" : shortenAddress(result.issuer)}
           </strong>
         </div>
 
@@ -731,18 +751,26 @@ export default function VerifyPortal({ qrDiplomaId = "" }) {
     {/* Invalid explanation */}
     {!result.isValid && (
       <div className="invalid-explanation">
-        <strong>Vì sao văn bằng không hợp lệ?</strong>
+        <strong>
+          {result.statusNum === 0
+            ? "Vì sao văn bằng không tồn tại?"
+            : result.statusNum === 2
+            ? "Văn bằng này đã bị thu hồi"
+            : "Vì sao văn bằng không hợp lệ?"}
+        </strong>
 
         <p>
-          File PDF bạn cung cấp có thể đã bị thay đổi hoặc
-          thông tin nhập vào không tương ứng với dữ liệu đã
-          được ghi nhận trên Blockchain.
+          {result.statusNum === 0
+            ? "Smart Contract chưa ghi nhận văn bằng nào khớp với 5 thông tin bạn nhập. Có thể văn bằng chưa từng được phát hành hoặc bị gõ sai thông tin."
+            : result.statusNum === 2
+            ? "Đơn vị phát hành đã thu hồi văn bằng này trên Smart Contract nên văn bằng không còn giá trị sử dụng."
+            : "File PDF bạn cung cấp có thể đã bị thay đổi hoặc thông tin nhập vào không tương ứng với dữ liệu đã được ghi nhận trên Blockchain."}
         </p>
 
         <div className="invalid-tips">
           <span>• Kiểm tra lại mã sinh viên</span>
           <span>• Kiểm tra mã chương trình / ngành</span>
-          <span>• Đảm bảo sử dụng đúng file PDF</span>
+          <span>• Kiểm tra năm tốt nghiệp, loại và số hiệu văn bằng</span>
         </div>
       </div>
     )}
@@ -753,10 +781,10 @@ export default function VerifyPortal({ qrDiplomaId = "" }) {
       {lookupResult && (
         <section
           className={`verification-result lookup-result ${
-            lookupResult.statusNum === 2 ? "lookup-revoked" : ""
+            lookupResult.statusNum === 2 || lookupResult.statusNum === 0 ? "lookup-revoked" : ""
           }`}
           style={
-            lookupResult.statusNum === 2
+            lookupResult.statusNum === 2 || lookupResult.statusNum === 0
               ? { borderColor: "#fca5a5", background: "#fffdfd" }
               : undefined
           }
@@ -766,22 +794,24 @@ export default function VerifyPortal({ qrDiplomaId = "" }) {
 
             <div
               className={`verification-result-icon ${
-                lookupResult.statusNum === 2 ? "invalid-icon" : "lookup-icon"
+                lookupResult.statusNum === 2 || lookupResult.statusNum === 0 ? "invalid-icon" : "lookup-icon"
               }`}
               style={
-                lookupResult.statusNum === 2
+                lookupResult.statusNum === 2 || lookupResult.statusNum === 0
                   ? { background: "#fee2e2", borderColor: "#fca5a5" }
                   : undefined
               }
             >
-              {lookupResult.statusNum === 2 ? "⛔" : "🔎"}
+              {lookupResult.statusNum === 2 ? "⛔" : lookupResult.statusNum === 0 ? "❌" : "🔎"}
             </div>
 
             <div style={{ flex: 1 }}>
               <div
                 className="verification-result-label"
                 style={
-                  lookupResult.statusNum === 2 ? { color: "#dc2626" } : undefined
+                  lookupResult.statusNum === 2 || lookupResult.statusNum === 0
+                    ? { color: "#dc2626" }
+                    : undefined
                 }
               >
                 TRA CỨU BLOCKCHAIN
@@ -805,6 +835,24 @@ export default function VerifyPortal({ qrDiplomaId = "" }) {
                     ⚠️ Văn bằng này đã bị đơn vị phát hành thu hồi trên Smart Contract và KHÔNG còn giá trị sử dụng.
                   </p>
                 </>
+              ) : lookupResult.statusNum === 0 ? (
+                <>
+                  <h3
+                    style={{
+                      color: "#dc2626",
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 8,
+                      margin: "4px 0",
+                    }}
+                  >
+                    <AlertTriangle size={22} color="#dc2626" strokeWidth={2.5} />
+                    Văn bằng không tồn tại
+                  </h3>
+                  <p style={{ color: "#b91c1c", fontWeight: 500, margin: 0 }}>
+                    Không tìm thấy văn bằng nào trên Smart Contract khớp với thông tin đã nhập (chưa từng được phát hành).
+                  </p>
+                </>
               ) : (
                 <>
                   <h3>Đã tìm thấy văn bằng</h3>
@@ -815,7 +863,7 @@ export default function VerifyPortal({ qrDiplomaId = "" }) {
               )}
             </div>
 
-            {lookupResult.statusNum === 2 && (
+            {(lookupResult.statusNum === 2 || lookupResult.statusNum === 0) && (
               <div
                 className="verification-status-badge badge-invalid"
                 style={{
@@ -825,7 +873,7 @@ export default function VerifyPortal({ qrDiplomaId = "" }) {
                   fontWeight: "bold",
                 }}
               >
-                ĐÃ THU HỒI
+                {lookupResult.statusNum === 2 ? "ĐÃ THU HỒI" : "KHÔNG TỒN TẠI"}
               </div>
             )}
 
@@ -872,7 +920,7 @@ export default function VerifyPortal({ qrDiplomaId = "" }) {
               <span>Trạng thái</span>
               <strong
                 style={
-                  lookupResult.statusNum === 2
+                  lookupResult.statusNum === 2 || lookupResult.statusNum === 0
                     ? { color: "#dc2626", fontWeight: "bold", fontSize: "1.05rem" }
                     : { color: "#16a34a" }
                 }
@@ -937,8 +985,8 @@ export default function VerifyPortal({ qrDiplomaId = "" }) {
         </section>
       )}
 
-      {/* History */}
-      {diplomaId && (
+      {/* History (chỉ hiển thị khi văn bằng có tồn tại trên chuỗi) */}
+      {diplomaId && ((result && result.statusNum !== 0) || (lookupResult && lookupResult.statusNum !== 0)) && (
         <section className="history-section">
           <SignaturePanel diplomaId={diplomaId} />
 
