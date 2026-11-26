@@ -101,7 +101,7 @@ export default function VerifyPortal({ qrDiplomaId = "" }) {
   function handleFileChange(selectedFile) {
     if (!selectedFile) return;
 
-    if (selectedFile.type !== "application/pdf") {
+    if (selectedFile.type !== "application/pdf" && !selectedFile.name.toLowerCase().endsWith(".pdf")) {
       setError("⚠️ Chỉ hỗ trợ file PDF.");
       return;
     }

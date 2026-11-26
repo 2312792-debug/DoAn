@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { ShieldCheck, ShieldAlert, Download, Copy, Check, ExternalLink } from "lucide-react";
-import { getReadOnlyContract, fetchAttestationRecord, checkAttestation, getOfficialSigner } from "../utils/contract";
+import { getReadOnlyContract, fetchAttestationRecord, checkAttestation, getOfficialSigner, requestSync } from "../utils/contract";
 
 /** Hien chu ky so cua nha truong cho 1 van bang va tu kiem tra ngay trong trinh duyet. */
 export default function SignaturePanel({ diplomaId }) {
@@ -12,14 +12,25 @@ export default function SignaturePanel({ diplomaId }) {
     setState({ loading: true });
     (async () => {
       try {
-        const rec = await fetchAttestationRecord(diplomaId);
+        let rec = await fetchAttestationRecord(diplomaId);
+        // Dia chi ky CHINH THUC: uu tien doc tu Smart Contract (neu da dat), neu khong thi lay tu .env cua frontend.
+        const [chain, official] = await Promise.all([getReadOnlyContract().getDiploma(diplomaId), getOfficialSigner()]);
+
+        // Neu DB chua kip dong bo su kien vua phat hanh/cap nhat/thu hoi -> yeu cau sync ngay roi doc lai 1 lan.
+        let chk = rec && rec.attestation ? checkAttestation(rec.attestation, chain, official) : null;
+        if (!rec || !rec.attestation || (chk && !chk.dataOk)) {
+          await requestSync();
+          const fresh = await fetchAttestationRecord(diplomaId);
+          if (fresh && fresh.attestation) {
+            rec = fresh;
+            chk = checkAttestation(rec.attestation, chain, official);
+          }
+        }
+
         if (!rec || !rec.attestation) {
           if (!cancelled) setState({ loading: false, none: true });
           return;
         }
-        // Dia chi ky CHINH THUC: uu tien doc tu Smart Contract (neu da dat), neu khong thi lay tu .env cua frontend.
-        const [chain, official] = await Promise.all([getReadOnlyContract().getDiploma(diplomaId), getOfficialSigner()]);
-        const chk = checkAttestation(rec.attestation, chain, official);
         if (!cancelled) setState({ loading: false, rec, chain, chk });
       } catch (e) {
         console.error(e);
