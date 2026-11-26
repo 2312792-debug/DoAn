@@ -66,6 +66,7 @@ export default function VerifyPortal({ qrDiplomaId = "" }) {
           statusLabel: STATUS_LABELS[Number(d.status)],
           cid: d.cid,
           issuer: d.issuer,
+          fileHash: d.fileHash,
           issuedAt: Number(d.issuedAt) > 0 ? new Date(Number(d.issuedAt) * 1000).toLocaleString("vi-VN") : "—",
         });
       })
@@ -202,6 +203,7 @@ export default function VerifyPortal({ qrDiplomaId = "" }) {
         statusLabel: STATUS_LABELS[Number(d.status)],
         cid: d.cid,
         issuer: d.issuer,
+        fileHash: d.fileHash,
         issuedAt:
           Number(d.issuedAt) > 0
             ? new Date(Number(d.issuedAt) * 1000).toLocaleString("vi-VN")
@@ -219,56 +221,45 @@ export default function VerifyPortal({ qrDiplomaId = "" }) {
     }
   }
 
-  return (
-    <div className="verify-page">
+  const hasTypedMetadata = Boolean(studentCode.trim() || programCode.trim() || refNumber.trim());
+  const backendUrl = (import.meta.env.VITE_BACKEND_URL || "http://localhost:4000").trim();
+  const backendIsLocalOnly =
+    typeof window !== "undefined" &&
+    !["localhost", "127.0.0.1"].includes(window.location.hostname) &&
+    /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?/i.test(backendUrl);
 
-      {/* Hero */}
-      <section className="verify-hero">
-        <div>
-          <div className="eyebrow">PUBLIC VERIFICATION</div>
+  const qrBanner = fromQr && qrDiplomaId ? (
+    <div className="history-note-box" style={{ marginBottom: 16 }}>
+      Bạn mở trang này từ <b>mã QR trong file PDF</b>. Hệ thống đã tự tra cứu văn bằng theo mã <code>{qrDiplomaId.slice(0, 10)}...{qrDiplomaId.slice(-8)}</code>. Nếu có sẵn file PDF trên thiết bị, bạn có thể chọn file bên dưới để đối chiếu SHA-256.{" "}
+      <button
+        type="button"
+        className="upload-change-btn"
+        onClick={() => setFromQr(false)}
+        style={{ marginLeft: 6 }}
+      >
+        Tự nhập 5 thông tin
+      </button>
+    </div>
+  ) : null;
 
-          <h2>Xác minh văn bằng</h2>
-
-          <p>
-            Kiểm tra tính hợp lệ của văn bằng bằng cách đối chiếu
-            thông tin và file PDF với dữ liệu được lưu trên Blockchain.
-          </p>
-        </div>
-
-        <div className="verify-hero-icon">
-          ✓
-        </div>
-      </section>
-
-      {/* Main verification card */}
+  const verifyFormCard = (
       <section className="verify-card">
 
         <div className="verify-card-header">
           <div>
-            <h3>Thông tin văn bằng</h3>
+            <h3>{fromQr && qrDiplomaId ? "Đối chiếu thêm với file PDF (tùy chọn)" : "Thông tin văn bằng"}</h3>
             <p>
-              Nhập thông tin giống với văn bằng cần kiểm tra.
+              {fromQr && qrDiplomaId
+                ? "Chọn chính file PDF bạn đang cầm rồi bấm Xác minh để kiểm tra toàn vẹn từng byte."
+                : "Nhập thông tin giống với văn bằng cần kiểm tra."}
             </p>
           </div>
         </div>
 
-        {fromQr && qrDiplomaId && (
-          <div className="history-note-box" style={{ marginBottom: 16 }}>
-            Bạn mở trang này từ <b>mã QR trong file PDF</b>. Hệ thống đã tra cứu sẵn văn bằng theo mã trong QR, không cần
-            nhập lại thông tin. Để kiểm tra chính file PDF đang cầm có đúng bản gốc không, chỉ cần chọn file bên dưới rồi
-            bấm "Xác minh văn bằng".{" "}
-            <button
-              type="button"
-              className="upload-change-btn"
-              onClick={() => setFromQr(false)}
-              style={{ marginLeft: 6 }}
-            >
-              Tự nhập thông tin
-            </button>
-          </div>
-        )}
+        {!fromQr && qrBanner}
 
-        {/* Form */}
+        {/* Form (ẩn 5 ô trống khi mở từ mã QR để màn hình gọn trên điện thoại) */}
+        {(!fromQr || !qrDiplomaId) && (
         <div className="verify-form-grid">
 
           <div className="field">
@@ -331,6 +322,7 @@ export default function VerifyPortal({ qrDiplomaId = "" }) {
           </div>
 
         </div>
+        )}
 
         {/* Upload */}
         <div className="field">
@@ -437,7 +429,10 @@ export default function VerifyPortal({ qrDiplomaId = "" }) {
         )}
 
       </section>
+  );
 
+  const resultsSection = (
+    <>
       {/* Verification result */}
       {result && (
   <section
@@ -516,34 +511,45 @@ export default function VerifyPortal({ qrDiplomaId = "" }) {
       </div>
 
       <div className="verification-details">
-        <div className="verification-detail">
-          <span>Mã sinh viên</span>
-          <strong>{studentCode}</strong>
-        </div>
+        {hasTypedMetadata ? (
+          <>
+            <div className="verification-detail">
+              <span>Mã sinh viên</span>
+              <strong>{studentCode}</strong>
+            </div>
 
-        <div className="verification-detail">
-          <span>Chương trình / ngành</span>
-          <strong>{programCode}</strong>
-        </div>
+            <div className="verification-detail">
+              <span>Chương trình / ngành</span>
+              <strong>{programCode}</strong>
+            </div>
 
-        <div className="verification-detail">
-          <span>Năm tốt nghiệp</span>
-          <strong>{gradYear}</strong>
-        </div>
+            <div className="verification-detail">
+              <span>Năm tốt nghiệp</span>
+              <strong>{gradYear}</strong>
+            </div>
 
-        <div className="verification-detail">
-          <span>Loại văn bằng</span>
-          <strong>
-            {DIPLOMA_TYPES.find(
-              (t) => t.value === diplomaType
-            )?.label || diplomaType}
-          </strong>
-        </div>
+            <div className="verification-detail">
+              <span>Loại văn bằng</span>
+              <strong>
+                {DIPLOMA_TYPES.find(
+                  (t) => t.value === diplomaType
+                )?.label || diplomaType}
+              </strong>
+            </div>
 
-        <div className="verification-detail">
-          <span>Số hiệu văn bằng</span>
-          <strong>{refNumber}</strong>
-        </div>
+            <div className="verification-detail">
+              <span>Số hiệu văn bằng</span>
+              <strong>{refNumber}</strong>
+            </div>
+          </>
+        ) : (
+          <div className="verification-detail">
+            <span>Mã định danh (QR)</span>
+            <strong title={diplomaId || ""} className="mono-value">
+              {diplomaId ? `${diplomaId.slice(0, 10)}...${diplomaId.slice(-8)}` : "—"}
+            </strong>
+          </div>
+        )}
 
         <div className="verification-detail">
           <span>Trạng thái</span>
@@ -901,20 +907,49 @@ export default function VerifyPortal({ qrDiplomaId = "" }) {
 
           <div className="verification-details">
 
-            <div className="verification-detail">
-              <span>Sinh viên</span>
-              <strong>{studentCode || "—"}</strong>
-            </div>
+            {hasTypedMetadata ? (
+              <>
+                <div className="verification-detail">
+                  <span>Sinh viên</span>
+                  <strong>{studentCode || "—"}</strong>
+                </div>
 
-            <div className="verification-detail">
-              <span>Chương trình</span>
-              <strong>{programCode || "—"}</strong>
-            </div>
+                <div className="verification-detail">
+                  <span>Chương trình</span>
+                  <strong>{programCode || "—"}</strong>
+                </div>
 
-            <div className="verification-detail">
-              <span>Số hiệu văn bằng</span>
-              <strong>{refNumber || "—"}</strong>
-            </div>
+                <div className="verification-detail">
+                  <span>Số hiệu văn bằng</span>
+                  <strong>{refNumber || "—"}</strong>
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="verification-detail">
+                  <span>Mã văn bằng (QR)</span>
+                  <strong title={diplomaId || ""} className="mono-value">
+                    {diplomaId ? `${diplomaId.slice(0, 10)}...${diplomaId.slice(-8)}` : "—"}
+                  </strong>
+                </div>
+
+                <div className="verification-detail">
+                  <span>Đơn vị phát hành</span>
+                  <strong title={lookupResult.issuer || ""} className="mono-value">
+                    {lookupResult.statusNum === 0 ? "—" : shortenAddress(lookupResult.issuer)}
+                  </strong>
+                </div>
+
+                <div className="verification-detail">
+                  <span>Mã băm gốc (SHA-256)</span>
+                  <strong title={lookupResult.fileHash || ""} className="mono-value">
+                    {lookupResult.statusNum !== 0 && lookupResult.fileHash
+                      ? `${lookupResult.fileHash.slice(0, 10)}...${lookupResult.fileHash.slice(-8)}`
+                      : "—"}
+                  </strong>
+                </div>
+              </>
+            )}
 
             <div className="verification-detail">
               <span>Trạng thái</span>
@@ -963,23 +998,35 @@ export default function VerifyPortal({ qrDiplomaId = "" }) {
             </div>
 
             {lookupResult.cid ? (
-              <a
-                href={secureFileUrl(diplomaId, lookupResult.cid)}
-                target="_blank"
-                rel="noreferrer"
-                className="outline-action"
-                style={lookupResult.statusNum === 2 ? { borderColor: "#f43f5e", color: "#e11d48" } : undefined}
-              >
-                {lookupResult.statusNum === 2 ? "Xem file gốc đối soát" : "Xem / tải bản gốc"}
-                <ExternalLink size={12} strokeWidth={2} style={{ display: "inline", verticalAlign: "middle", marginLeft: 4 }} />
-              </a>
+              backendIsLocalOnly ? (
+                <span style={{ fontSize: "0.82rem", color: "#64748b", textAlign: "right" }}>
+                  Cần host Backend trực tuyến để tải file giải mã từ thiết bị khác
+                </span>
+              ) : (
+                <a
+                  href={secureFileUrl(diplomaId, lookupResult.cid)}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="outline-action"
+                  style={lookupResult.statusNum === 2 ? { borderColor: "#f43f5e", color: "#e11d48" } : undefined}
+                >
+                  {lookupResult.statusNum === 2 ? "Xem file gốc đối soát" : "Xem / tải bản gốc"}
+                  <ExternalLink size={12} strokeWidth={2} style={{ display: "inline", verticalAlign: "middle", marginLeft: 4 }} />
+                </a>
+              )
             ) : null}
           </div>
 
           <div className="lookup-note">
-            💡 Tra cứu nhanh chỉ kiểm tra dữ liệu văn bằng trên
-            Blockchain. Để xác minh chính file PDF bạn đang có,
-            hãy sử dụng chức năng <strong>Xác minh văn bằng</strong>.
+            💡 {!hasTypedMetadata ? (
+              <>
+                Thông tin cá nhân (MSSV, ngành, số hiệu) được băm một chiều thành Mã văn bằng để bảo mật trên chuỗi. Để kiểm tra file PDF bạn đang cầm có đúng bản gốc không, chọn file ở khung bên dưới rồi bấm <strong>Xác minh văn bằng</strong>.
+              </>
+            ) : (
+              <>
+                Tra cứu nhanh chỉ kiểm tra dữ liệu văn bằng trên Blockchain. Để xác minh chính file PDF bạn đang có, hãy sử dụng chức năng <strong>Xác minh văn bằng</strong>.
+              </>
+            )}
           </div>
 
         </section>
@@ -1003,6 +1050,45 @@ export default function VerifyPortal({ qrDiplomaId = "" }) {
           <TransactionHistory diplomaId={diplomaId} />
 
         </section>
+      )}
+    </>
+  );
+
+  return (
+    <div className="verify-page">
+
+      {/* Hero */}
+      <section className="verify-hero">
+        <div>
+          <div className="eyebrow">PUBLIC VERIFICATION</div>
+
+          <h2>Xác minh văn bằng</h2>
+
+          <p>
+            Kiểm tra tính hợp lệ của văn bằng bằng cách đối chiếu
+            thông tin và file PDF với dữ liệu được lưu trên Blockchain.
+          </p>
+        </div>
+
+        <div className="verify-hero-icon">
+          ✓
+        </div>
+      </section>
+
+      {fromQr && qrDiplomaId ? (
+        <>
+          {qrBanner}
+          {lookupLoading && !lookupResult && !result && (
+            <div className="history-note-box">Đang tra cứu thông tin văn bằng từ Blockchain...</div>
+          )}
+          {resultsSection}
+          {verifyFormCard}
+        </>
+      ) : (
+        <>
+          {verifyFormCard}
+          {resultsSection}
+        </>
       )}
 
       {/* Trust information */}
