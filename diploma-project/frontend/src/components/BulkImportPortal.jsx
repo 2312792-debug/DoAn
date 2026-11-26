@@ -20,8 +20,7 @@ import {
   explorerTxUrl,
   getDiplomaStatus,
 } from "../utils/contract";
-import { uploadPdfToIpfs, signAndUploadPdfToIpfs } from "../utils/pinataClient";
-import { stampQrOnPdf, downloadFile } from "../utils/stampQr";
+import { uploadPdfToIpfs, signAndUploadPdfToIpfs, downloadFile } from "../utils/pinataClient";
 
 const VALID_TYPES = new Set(DIPLOMA_TYPES.map((t) => t.value));
 const CSV_HEADERS = ["mssv", "ma_nganh", "nam_tot_nghiep", "loai_van_bang", "so_hieu_van_bang"];
@@ -69,8 +68,6 @@ export default function BulkImportPortal({ account, isIssuer, connecting, connec
   const [batchError, setBatchError] = useState("");
   // Ky so X.509 / PKCS#7 nhung truc tiep vao tung PDF TRUOC khi bam/tai len.
   const [embedPdfSig, setEmbedPdfSig] = useState(true);
-  // Tuy chon in them QR (link xac minh) vao tung PDF TRUOC khi ky so/bam.
-  const [stampQr, setStampQr] = useState(false);
 
   function handleCsvChange(e) {
     const f = e.target.files?.[0];
@@ -221,8 +218,8 @@ export default function BulkImportPortal({ account, isIssuer, connecting, connec
       try {
         updated[i] = { ...r, status: "dang_bam" };
         setRows([...updated]);
-        // In QR & ky so TRUOC khi bam: hash + file tren IPFS phai la cua CHINH ban PDF cuoi cung.
-        let fileToIssue = stampQr ? await stampQrOnPdf(r.file, r.diplomaId) : r.file;
+        // Ky so TRUOC khi bam: hash + file tren IPFS phai la cua CHINH ban PDF da ky so.
+        let fileToIssue = r.file;
         let fileHash;
         let cid;
 
@@ -245,7 +242,7 @@ export default function BulkImportPortal({ account, isIssuer, connecting, connec
           status: "san_sang",
           fileHash,
           cid,
-          stampedFile: embedPdfSig || stampQr ? fileToIssue : null,
+          stampedFile: embedPdfSig ? fileToIssue : null,
         };
         setRows([...updated]);
       } catch (err) {
@@ -293,7 +290,7 @@ export default function BulkImportPortal({ account, isIssuer, connecting, connec
 
   const stampedRows = rows.filter((r) => r.stampedFile && (r.status === "san_sang" || r.status === "da_phat_hanh"));
 
-  /** Tai lan luot tung ban PDF da in QR (cach quang giua cac lan tai de trinh duyet khong chan). */
+  /** Tai lan luot tung ban PDF da ky so (cach quang giua cac lan tai de trinh duyet khong chan). */
   async function downloadAllStamped() {
     for (const r of stampedRows) {
       downloadFile(r.stampedFile);
@@ -314,7 +311,7 @@ export default function BulkImportPortal({ account, isIssuer, connecting, connec
 
   const STATUS_META = {
     cho_xu_ly: { label: "Chờ xử lý", cls: "muted" },
-    dang_bam: { label: "Đang in QR & băm...", cls: "muted" },
+    dang_bam: { label: "Đang xử lý & ký số...", cls: "muted" },
     dang_tai_len: { label: "Đang mã hoá & tải lên...", cls: "muted" },
     san_sang: { label: "Sẵn sàng phát hành", cls: "ok" },
     da_phat_hanh: { label: "Đã phát hành", cls: "ok" },
@@ -429,7 +426,7 @@ export default function BulkImportPortal({ account, isIssuer, connecting, connec
             </label>
           </div>
 
-          <label style={{ display: "flex", gap: 10, alignItems: "flex-start", margin: "14px 0 8px", cursor: "pointer" }}>
+          <label style={{ display: "flex", gap: 10, alignItems: "flex-start", margin: "14px 0", cursor: "pointer" }}>
             <input
               type="checkbox"
               checked={embedPdfSig}
@@ -443,23 +440,6 @@ export default function BulkImportPortal({ account, isIssuer, connecting, connec
               <span style={{ opacity: 0.75 }}>
                 Nhúng chữ ký số vào cấu trúc từng file PDF (mở bằng Foxit/Adobe Reader sẽ hiện <em>Signature Properties</em>)
                 trước khi băm và tải lên IPFS.
-              </span>
-            </span>
-          </label>
-
-          <label style={{ display: "flex", gap: 10, alignItems: "flex-start", margin: "8px 0 14px", cursor: "pointer" }}>
-            <input
-              type="checkbox"
-              checked={stampQr}
-              onChange={(e) => setStampQr(e.target.checked)}
-              disabled={processing || issuing}
-              style={{ marginTop: 4 }}
-            />
-            <span style={{ fontSize: "0.9rem", lineHeight: 1.45 }}>
-              <strong>In thêm mã QR tra cứu vào từng PDF (tùy chọn)</strong>
-              <br />
-              <span style={{ opacity: 0.75 }}>
-                Nếu bật, QR được in vào góc dưới bên phải trang đầu <em>trước khi</em> ký số và băm.
               </span>
             </span>
           </label>
@@ -513,7 +493,7 @@ export default function BulkImportPortal({ account, isIssuer, connecting, connec
                             style={{ marginTop: 6, padding: "4px 10px", fontSize: 12 }}
                             onClick={() => downloadFile(r.stampedFile)}
                           >
-                            <Download size={12} strokeWidth={2} /> {embedPdfSig ? "Tải PDF đã ký số" : "Tải PDF đã in QR"}
+                            <Download size={12} strokeWidth={2} /> Tải PDF đã ký số
                           </button>
                         )}
                       </div>
@@ -557,7 +537,7 @@ export default function BulkImportPortal({ account, isIssuer, connecting, connec
 
                 {stampedRows.length > 0 && (
                   <button type="button" className="outline-action" onClick={downloadAllStamped} disabled={processing || issuing}>
-                    <Download size={14} strokeWidth={2} /> {embedPdfSig ? "Tải tất cả PDF đã ký số" : "Tải tất cả PDF đã in QR"} ({stampedRows.length})
+                    <Download size={14} strokeWidth={2} /> Tải tất cả PDF đã ký số ({stampedRows.length})
                   </button>
                 )}
 

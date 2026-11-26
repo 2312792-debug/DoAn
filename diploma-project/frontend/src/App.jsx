@@ -37,11 +37,7 @@ import {
   STATUS_LABELS,
 } from "./utils/contract";
 import contractInfo from "./contractInfo.json";
-import { diplomaIdFromUrl } from "./utils/stampQr";
 import "./styles.css";
-
-// Link tu ma QR in trong PDF: /?verify=0x<diplomaId> -> mo thang trang Xac minh va tu tra cuu.
-const QR_DIPLOMA_ID = diplomaIdFromUrl();
 
 const MENU_ITEMS = [
   { id: "dashboard", icon: LayoutDashboard, label: "Tổng quan", access: "public" },
@@ -132,7 +128,7 @@ function useWalletRole() {
 }
 
 export default function App() {
-  const [page, setPage] = useState(QR_DIPLOMA_ID ? "verify" : "dashboard");
+  const [page, setPage] = useState("dashboard");
   const { account, isIssuer, isAdmin, checkingRole, connecting, connectWallet } =
     useWalletRole();
 
@@ -279,7 +275,7 @@ export default function App() {
 
           {page === "verify" && (
             <section className="portal-wrapper">
-              <VerifyPortal qrDiplomaId={QR_DIPLOMA_ID} />
+              <VerifyPortal />
             </section>
           )}
 

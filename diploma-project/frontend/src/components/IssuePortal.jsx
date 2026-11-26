@@ -23,8 +23,7 @@ import {
   updateDiploma as updateDiplomaCall,
   describeTxError,
 } from "../utils/contract";
-import { uploadPdfToIpfs, signAndUploadPdfToIpfs, schoolCertDownloadUrl } from "../utils/pinataClient";
-import { stampQrOnPdf, downloadFile } from "../utils/stampQr";
+import { uploadPdfToIpfs, signAndUploadPdfToIpfs, schoolCertDownloadUrl, downloadFile } from "../utils/pinataClient";
 
 const CURRENT_YEAR = new Date().getFullYear();
 
@@ -48,8 +47,6 @@ export default function IssuePortal({ account, isIssuer, connecting, connectWall
   const [txHash, setTxHash] = useState("");
   // Ky so X.509 / PKCS#7 nhung truc tiep vao file PDF (hien Signature Properties trong Foxit/Adobe).
   const [embedPdfSig, setEmbedPdfSig] = useState(true);
-  // Tuy chon in them ma QR (link xac minh) vao PDF TRUOC khi ky so/bam.
-  const [stampQr, setStampQr] = useState(false);
   const [stampedFile, setStampedFile] = useState(null);
 
   // Update
@@ -99,13 +96,8 @@ export default function IssuePortal({ account, isIssuer, connecting, connectWall
         refNumber
       );
 
-      // In QR / ky so PKCS#7 TRUOC khi bam: hash + file tren IPFS phai la cua CHINH ban PDF cuoi cung nay.
+      // Ky so PKCS#7 TRUOC khi bam: hash + file tren IPFS phai la cua CHINH ban PDF da ky so.
       let fileToIssue = file;
-      if (stampQr) {
-        setStatus("🔳 Đang in mã QR xác minh vào PDF...");
-        fileToIssue = await stampQrOnPdf(file, diplomaId);
-      }
-
       let fileHash;
       let cid;
       if (embedPdfSig) {
@@ -133,7 +125,7 @@ export default function IssuePortal({ account, isIssuer, connecting, connectWall
       );
 
       setTxHash(hash);
-      setStampedFile(embedPdfSig || stampQr ? fileToIssue : null);
+      setStampedFile(embedPdfSig ? fileToIssue : null);
       setStatus("success");
     } catch (err) {
       console.error(err);
@@ -175,11 +167,6 @@ export default function IssuePortal({ account, isIssuer, connecting, connectWall
       );
 
       let fileToUpdate = updFile;
-      if (stampQr) {
-        setUpdStatus("🔳 Đang in mã QR xác minh vào PDF mới...");
-        fileToUpdate = await stampQrOnPdf(updFile, diplomaId);
-      }
-
       let fileHash;
       let cid;
       if (embedPdfSig) {
@@ -206,7 +193,7 @@ export default function IssuePortal({ account, isIssuer, connecting, connectWall
         cid
       );
 
-      setUpdStampedFile(embedPdfSig || stampQr ? fileToUpdate : null);
+      setUpdStampedFile(embedPdfSig ? fileToUpdate : null);
       setUpdStatus(
         `✅ Cập nhật thành công!\nTx: ${hash}\nCID mới: ${cid}`
       );
@@ -552,7 +539,7 @@ export default function IssuePortal({ account, isIssuer, connecting, connectWall
               </label>
             </div>
 
-            <label style={{ display: "flex", gap: 10, alignItems: "flex-start", margin: "14px 0 10px", cursor: "pointer" }}>
+            <label style={{ display: "flex", gap: 10, alignItems: "flex-start", margin: "14px 0", cursor: "pointer" }}>
               <input
                 type="checkbox"
                 checked={embedPdfSig}
@@ -565,22 +552,6 @@ export default function IssuePortal({ account, isIssuer, connecting, connectWall
                 <span style={{ opacity: 0.75 }}>
                   Nhúng chữ ký số trực tiếp vào cấu trúc PDF (mở bằng <b>Foxit Reader / Adobe Reader</b> sẽ hiện hộp thoại{" "}
                   <em>Signature Properties</em> của Trường ĐH Đà Lạt). Thực hiện trước khi băm SHA-256.
-                </span>
-              </span>
-            </label>
-
-            <label style={{ display: "flex", gap: 10, alignItems: "flex-start", margin: "8px 0 14px", cursor: "pointer" }}>
-              <input
-                type="checkbox"
-                checked={stampQr}
-                onChange={(e) => setStampQr(e.target.checked)}
-                style={{ marginTop: 4 }}
-              />
-              <span style={{ fontSize: "0.9rem", lineHeight: 1.45 }}>
-                <strong>In thêm mã QR tra cứu nhanh vào góc phải PDF (tùy chọn)</strong>
-                <br />
-                <span style={{ opacity: 0.75 }}>
-                  Nếu bật, QR được in vào góc dưới bên phải <em>trước khi</em> ký số và băm để quét điện thoại mở nhanh trang xác minh.
                 </span>
               </span>
             </label>
@@ -634,18 +605,16 @@ export default function IssuePortal({ account, isIssuer, connecting, connectWall
             {status === "success" && stampedFile && (
               <div className="history-note-box" style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
                 <button type="button" className="outline-action" onClick={() => downloadFile(stampedFile)}>
-                  <Download size={14} strokeWidth={2} /> {embedPdfSig ? "Tải bản PDF đã ký số" : "Tải bản PDF đã in QR"}
+                  <Download size={14} strokeWidth={2} /> Tải bản PDF đã ký số
                 </button>
-                {embedPdfSig && (
-                  <a
-                    href={schoolCertDownloadUrl()}
-                    className="outline-action"
-                    download="dlu-school-cert.cer"
-                    style={{ textDecoration: "none" }}
-                  >
-                    <Download size={14} strokeWidth={2} /> Tải chứng thư số (.cer)
-                  </a>
-                )}
+                <a
+                  href={schoolCertDownloadUrl()}
+                  className="outline-action"
+                  download="dlu-school-cert.cer"
+                  style={{ textDecoration: "none" }}
+                >
+                  <Download size={14} strokeWidth={2} /> Tải chứng thư số (.cer)
+                </a>
                 <span style={{ fontSize: "0.85rem" }}>
                   Đây là bản phải phát cho sinh viên (mở bằng Foxit/Adobe Reader để xem Signature Properties). Mã băm trên Blockchain là của đúng file này.
                 </span>
@@ -811,14 +780,9 @@ export default function IssuePortal({ account, isIssuer, connecting, connectWall
               </label>
             </div>
 
-            <label style={{ display: "flex", gap: 10, alignItems: "center", margin: "14px 0 8px", cursor: "pointer", fontSize: "0.9rem" }}>
+            <label style={{ display: "flex", gap: 10, alignItems: "center", margin: "14px 0", cursor: "pointer", fontSize: "0.9rem" }}>
               <input type="checkbox" checked={embedPdfSig} onChange={(e) => setEmbedPdfSig(e.target.checked)} />
               <span>Ký số PDF chuẩn X.509 / PKCS#7 vào file mới (cùng lựa chọn với tab Phát hành)</span>
-            </label>
-
-            <label style={{ display: "flex", gap: 10, alignItems: "center", margin: "6px 0 14px", cursor: "pointer", fontSize: "0.9rem" }}>
-              <input type="checkbox" checked={stampQr} onChange={(e) => setStampQr(e.target.checked)} />
-              <span>In thêm mã QR tra cứu vào PDF mới (tùy chọn)</span>
             </label>
 
             <button
@@ -852,7 +816,7 @@ export default function IssuePortal({ account, isIssuer, connecting, connectWall
             {updStampedFile && updStatus.startsWith("✅") && (
               <div className="history-note-box" style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
                 <button type="button" className="outline-action" onClick={() => downloadFile(updStampedFile)}>
-                  <Download size={14} strokeWidth={2} /> {embedPdfSig ? "Tải bản PDF mới đã ký số" : "Tải bản PDF mới đã in QR"}
+                  <Download size={14} strokeWidth={2} /> Tải bản PDF mới đã ký số
                 </button>
               </div>
             )}

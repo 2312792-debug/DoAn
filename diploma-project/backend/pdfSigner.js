@@ -101,7 +101,7 @@ function formatVnTimestamp(date) {
 /**
  * Ky so PDF chuan PKCS#7 / X.509 (/adbe.pkcs7.detached), mo bang Foxit Reader / Adobe Reader
  * se hien hop thoai "Signature Properties" va cho phep kiem tra tinh toan ven truc tiep.
- * Khung ky so duoc dat o goc duoi ben TRAI trang 1 de khong de len ma QR (o goc duoi ben PHAI).
+ * Khung ky so duoc dat o goc duoi ben trai trang 1 va gan widget chu ky tuong tac.
  */
 async function signPdfBuffer(pdfBuffer, { diplomaId = "", reason, location } = {}) {
   const { p12Buffer } = loadOrCreateSchoolCert();
@@ -290,3 +290,4 @@ module.exports = {
   CERT_PATH,
   CER_PATH,
 };
+

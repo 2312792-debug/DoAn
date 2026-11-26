@@ -89,3 +89,15 @@ export async function verifyPdfEmbeddedSignature(file) {
 export function schoolCertDownloadUrl() {
   return `${BACKEND_URL}/api/pdf-cert`;
 }
+
+/** Cho nguoi dung tai 1 File ve may (dung de tai ban PDF da ky so de phat cho sinh vien). */
+export function downloadFile(file, downloadName) {
+  const url = URL.createObjectURL(file);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = downloadName || file.name;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 4000);
+}
