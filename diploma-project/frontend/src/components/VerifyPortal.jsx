@@ -23,6 +23,7 @@ import {
 } from "../utils/contract";
 import TransactionHistory from "./TransactionHistory";
 import SignaturePanel from "./SignaturePanel";
+import { verifyPdfEmbeddedSignature } from "../utils/pinataClient";
 
 const CURRENT_YEAR = new Date().getFullYear();
 
@@ -154,7 +155,10 @@ export default function VerifyPortal({ qrDiplomaId = "" }) {
       // de tach rieng "hash co khop khong" voi "trang thai co con hieu luc khong".
       // Neu chi dung isValid, mot van bang da bi thu hoi se LUON hien "khong khop"
       // du file dua vao la ban goc that hay file gia - khong phan biet duoc.
-      const diploma = await contract.getDiploma(id);
+      const [diploma, pdfSig] = await Promise.all([
+        contract.getDiploma(id),
+        backendIsLocalOnly ? Promise.resolve(null) : verifyPdfEmbeddedSignature(file),
+      ]);
       const hashMatches = diploma.fileHash === fileHash;
 
       setDiplomaId(id);
@@ -171,6 +175,7 @@ export default function VerifyPortal({ qrDiplomaId = "" }) {
             ? new Date(Number(issuedAt) * 1000).toLocaleString("vi-VN")
             : "—",
         fileHash,
+        pdfSig,
       });
     } catch (err) {
       console.error(err);
@@ -646,6 +651,39 @@ export default function VerifyPortal({ qrDiplomaId = "" }) {
             </span>
           </div>
         </div>
+
+        {result.pdfSig && (
+          <div
+            className={`verification-check ${
+              !result.pdfSig.hasSignature
+                ? "check-failed"
+                : result.pdfSig.intact && result.pdfSig.matchesSchoolCert
+                ? "check-success"
+                : "check-failed"
+            }`}
+          >
+            <span className="check-icon">
+              {result.pdfSig.hasSignature && result.pdfSig.intact && result.pdfSig.matchesSchoolCert ? (
+                <Check size={15} strokeWidth={3} />
+              ) : (
+                <AlertTriangle size={15} strokeWidth={2.5} />
+              )}
+            </span>
+
+            <div>
+              <strong>Chữ ký số nhúng trong file PDF (X.509 / PKCS#7)</strong>
+              <span>
+                {!result.pdfSig.hasSignature
+                  ? "File PDF này không có chữ ký số X.509 nhúng bên trong."
+                  : result.pdfSig.intact && result.pdfSig.matchesSchoolCert
+                  ? `Hợp lệ — Ký bởi ${result.pdfSig.signer} (${result.pdfSig.location || "VN"}), chưa bị chỉnh sửa sau khi ký.`
+                  : result.pdfSig.intact
+                  ? `Chữ ký trong PDF do "${result.pdfSig.signer}" ký, KHÔNG khớp chứng thư số chính thức của trường.`
+                  : "Chữ ký số bên trong file PDF đã bị hỏng hoặc tài liệu bị chỉnh sửa sau khi ký!"}
+              </span>
+            </div>
+          </div>
+        )}
       </div>
     </div>
 

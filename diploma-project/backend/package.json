@@ -6,16 +6,21 @@
   "scripts": {
     "start": "node server.js",
     "dev": "node --watch server.js",
-    "test": "node test/crypto.test.js && node test/signature.test.js"
+    "test": "node test/crypto.test.js && node test/signature.test.js && node test/pdfSigner.test.js"
   },
   "dependencies": {
+    "@signpdf/placeholder-pdf-lib": "^4.0.0",
+    "@signpdf/signer-p12": "^4.0.0",
+    "@signpdf/signpdf": "^4.0.0",
     "axios": "^1.7.2",
     "cors": "^2.8.5",
     "dotenv": "^16.4.5",
+    "ethers": "^6.13.1",
     "express": "^4.19.2",
     "form-data": "^4.0.0",
     "multer": "^2.0.0",
-    "ethers": "^6.13.1"
+    "node-forge": "^1.4.4",
+    "pdf-lib": "^1.17.1"
   },
   "optionalDependencies": {
     "better-sqlite3": "^11.5.0"
