@@ -2,7 +2,7 @@ const fs = require("fs");
 const path = require("path");
 const crypto = require("crypto");
 const forge = require("node-forge");
-const { PDFDocument, StandardFonts, rgb } = require("pdf-lib");
+const { PDFDocument } = require("pdf-lib");
 const signpdf = require("@signpdf/signpdf").default;
 const { pdflibAddPlaceholder } = require("@signpdf/placeholder-pdf-lib");
 const { P12Signer } = require("@signpdf/signer-p12");
@@ -89,77 +89,17 @@ function loadOrCreateSchoolCert() {
   return _cached;
 }
 
-function formatVnTimestamp(date) {
-  const vn = new Date(date.getTime() + 7 * 3600 * 1000);
-  const pad = (n) => String(n).padStart(2, "0");
-  return (
-    `${vn.getUTCFullYear()}-${pad(vn.getUTCMonth() + 1)}-${pad(vn.getUTCDate())} ` +
-    `${pad(vn.getUTCHours())}:${pad(vn.getUTCMinutes())}:${pad(vn.getUTCSeconds())} +07:00`
-  );
-}
-
 /**
- * Ky so PDF chuan PKCS#7 / X.509 (/adbe.pkcs7.detached), mo bang Foxit Reader / Adobe Reader
- * se hien hop thoai "Signature Properties" va cho phep kiem tra tinh toan ven truc tiep.
- * Khung ky so duoc dat o goc duoi ben trai trang 1 va gan widget chu ky tuong tac.
+ * Ky so PDF AN (invisible signature) chuan PKCS#7 / X.509 (/adbe.pkcs7.detached).
+ * Giu nguyen 100% giao dien goc cua file PDF (khong ve khung che vien van bang),
+ * dong thoi hien day du trong panel Digital Signatures / Signature Properties khi mo
+ * bang Foxit Reader hoac Adobe Acrobat Reader.
  */
 async function signPdfBuffer(pdfBuffer, { diplomaId = "", reason, location } = {}) {
   const { p12Buffer } = loadOrCreateSchoolCert();
   const now = new Date();
 
   const pdfDoc = await PDFDocument.load(pdfBuffer, { updateMetadata: false });
-  const page = pdfDoc.getPage(0);
-  const box = page.getCropBox();
-
-  const x = box.x + 16;
-  const y = box.y + 16;
-  const w = Math.min(226, Math.max(170, box.width - 120));
-  const h = 52;
-
-  const fontBold = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
-  const fontReg = await pdfDoc.embedFont(StandardFonts.Helvetica);
-
-  // Ve khung con dau ky so truc quan o goc duoi trai; widget chu ky nam trung khop len khung nay
-  // de nguoi dung bam vao mo ngay hop thoai Signature Properties trong Foxit/Adobe Reader.
-  page.drawRectangle({
-    x,
-    y,
-    width: w,
-    height: h,
-    color: rgb(0.98, 0.99, 1),
-    borderColor: rgb(0.75, 0.15, 0.18),
-    borderWidth: 1,
-  });
-  page.drawText("DIGITALLY SIGNED (X.509 / PKCS#7)", {
-    x: x + 7,
-    y: y + h - 12,
-    size: 6.8,
-    font: fontBold,
-    color: rgb(0.75, 0.12, 0.15),
-  });
-  page.drawText("Signed by: Truong Dai hoc Da Lat (DLU)", {
-    x: x + 7,
-    y: y + h - 23,
-    size: 6.8,
-    font: fontBold,
-    color: rgb(0.12, 0.16, 0.24),
-  });
-  page.drawText(`Date: ${formatVnTimestamp(now)}`, {
-    x: x + 7,
-    y: y + h - 34,
-    size: 6.3,
-    font: fontReg,
-    color: rgb(0.25, 0.3, 0.38),
-  });
-  if (diplomaId) {
-    page.drawText(`Diploma ID: ${diplomaId.slice(0, 14)}...${diplomaId.slice(-8)}`, {
-      x: x + 7,
-      y: y + h - 44,
-      size: 6.1,
-      font: fontReg,
-      color: rgb(0.35, 0.4, 0.48),
-    });
-  }
 
   pdflibAddPlaceholder({
     pdfDoc,
@@ -168,7 +108,7 @@ async function signPdfBuffer(pdfBuffer, { diplomaId = "", reason, location } = {
     name: "Truong Dai hoc Da Lat (DLU)",
     location: location || "Da Lat, Lam Dong, VN",
     signingTime: now,
-    widgetRect: [x, y, x + w, y + h],
+    widgetRect: [0, 0, 0, 0],
     appName: "DiplomaChain DLU",
   });
 
