@@ -90,25 +90,36 @@ function loadOrCreateSchoolCert() {
 }
 
 /**
- * Ky so PDF AN (invisible signature) chuan PKCS#7 / X.509 (/adbe.pkcs7.detached).
- * Giu nguyen 100% giao dien goc cua file PDF (khong ve khung che vien van bang),
- * dong thoi hien day du trong panel Digital Signatures / Signature Properties khi mo
- * bang Foxit Reader hoac Adobe Acrobat Reader.
+ * Ky so PDF chuan PKCS#7 / X.509 (/adbe.pkcs7.detached) voi vung ky trong suot
+ * dat ngay tai khu vuc con dau / chu ky goc phai duoi trang cuoi.
+ * Khong ve khung vien hay chu de len van bang (giu 100% giao dien goc), dong thoi
+ * khi mo bang Foxit Reader / Adobe Acrobat, bam truc tiep vao con dau / chu ky
+ * hoac mo panel Digital Signatures deu hien hop thoai Signature Properties.
  */
 async function signPdfBuffer(pdfBuffer, { diplomaId = "", reason, location } = {}) {
   const { p12Buffer } = loadOrCreateSchoolCert();
   const now = new Date();
 
   const pdfDoc = await PDFDocument.load(pdfBuffer, { updateMetadata: false });
+  const pages = pdfDoc.getPages();
+  const targetPage = pages[pages.length - 1];
+  const { width, height } = targetPage.getSize();
+  const widgetRect = [
+    Math.round(width * 0.52),
+    Math.round(height * 0.17),
+    Math.round(width * 0.88),
+    Math.round(height * 0.37),
+  ];
 
   pdflibAddPlaceholder({
     pdfDoc,
+    pdfPage: targetPage,
     reason: reason || `Xac thuc van bang dien tu chinh thuc - DLU${diplomaId ? " (" + diplomaId.slice(0, 14) + "...)" : ""}`,
     contactInfo: "daotao@dlu.edu.vn",
     name: "Truong Dai hoc Da Lat (DLU)",
     location: location || "Da Lat, Lam Dong, VN",
     signingTime: now,
-    widgetRect: [0, 0, 0, 0],
+    widgetRect,
     appName: "DiplomaChain DLU",
   });
 

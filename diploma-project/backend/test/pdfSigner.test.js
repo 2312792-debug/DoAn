@@ -2,6 +2,7 @@ const assert = require("assert");
 const fs = require("fs");
 const path = require("path");
 const os = require("os");
+const { PDFDocument, PDFName, PDFArray, PDFDict } = require("pdf-lib");
 
 process.env.PDF_CERT_PATH = path.join(os.tmpdir(), `pdfcert-test-${Date.now()}`, "school-cert.p12");
 
@@ -26,7 +27,14 @@ async function run() {
   assert.strictEqual(verified.intact, true);
   assert.strictEqual(verified.matchesSchoolCert, true);
   assert.ok(verified.signer.includes("Da Lat"));
-  console.log("OK  - ky so PDF -> PKCS#7 nguyen ven (intact = true) va khop chung thu nha truong");
+
+  // Kiem tra widget chu ky co kich thuoc bam duoc (phu vung con dau/chu ky)
+  const doc = await PDFDocument.load(signedPdf, { ignoreEncryption: true });
+  const fields = doc.catalog.lookup(PDFName.of("AcroForm"), PDFDict).lookup(PDFName.of("Fields"), PDFArray);
+  const sigField = fields.lookup(0, PDFDict);
+  const rect = sigField.lookup(PDFName.of("Rect"), PDFArray).asArray().map((n) => n.asNumber());
+  assert.ok(rect[2] > rect[0] && rect[3] > rect[1], `Widget Rect phai bam duoc, nhan: ${rect}`);
+  console.log("OK  - ky so PDF -> PKCS#7 nguyen ven (intact = true), bam duoc tai vung con dau", rect);
 
   // 3. Sua 1 byte trong PDF da ky -> phai phat hien mat toan ven (intact = false)
   const tampered = Buffer.from(signedPdf);
