@@ -191,6 +191,42 @@ describe("DiplomaRegistry", function () {
     const [emptyIds] = await registry.getDiplomasPage(999, 10);
     expect(emptyIds.length).to.equal(0);
   });
+
+  it("15. setAttestationSigner: admin dat dia chi ky so, bat dung event, getter tra ve dung; mac dinh la dia chi 0", async function () {
+    expect(await registry.attestationSigner()).to.equal(ethers.ZeroAddress);
+
+    await expect(registry.setAttestationSigner(employer.address))
+      .to.emit(registry, "AttestationSignerSet")
+      .withArgs(employer.address, admin.address);
+
+    expect(await registry.attestationSigner()).to.equal(employer.address);
+
+    // Admin doi sang dia chi khac duoc (vd doi khoa ky), ban ghi moi ghi de ban cu
+    await registry.setAttestationSigner(outsider.address);
+    expect(await registry.attestationSigner()).to.equal(outsider.address);
+  });
+
+  it("16. setAttestationSigner: chan tai khoan khong phai admin (ke ca khi dang co ISSUER_ROLE)", async function () {
+    await expect(
+      registry.connect(outsider).setAttestationSigner(employer.address)
+    ).to.be.revertedWithCustomError(registry, "AccessControlUnauthorizedAccount");
+
+    await registry.grantIssuer(issuer2.address); // co ISSUER_ROLE nhung khong phai DEFAULT_ADMIN_ROLE
+    await expect(
+      registry.connect(issuer2).setAttestationSigner(employer.address)
+    ).to.be.revertedWithCustomError(registry, "AccessControlUnauthorizedAccount");
+
+    expect(await registry.attestationSigner()).to.equal(ethers.ZeroAddress);
+  });
+
+  it("17. setAttestationSigner: tu choi dia chi 0 (tranh vo tinh xoa/lam hong dia chi chinh thuc)", async function () {
+    await registry.setAttestationSigner(employer.address);
+    await expect(registry.setAttestationSigner(ethers.ZeroAddress)).to.be.revertedWithCustomError(
+      registry,
+      "InvalidSigner"
+    );
+    expect(await registry.attestationSigner()).to.equal(employer.address);
+  });
 });
 
 // Helper de khong phai import anyValue tu @nomicfoundation/hardhat-chai-matchers/withArgs

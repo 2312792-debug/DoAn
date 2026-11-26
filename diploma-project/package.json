@@ -9,7 +9,8 @@
     "demo": "hardhat run scripts/demoLocalFlow.js --network hardhat",
     "deploy:amoy": "hardhat run scripts/deploy.js --network amoy",
     "deploy:sepolia": "hardhat run scripts/deploy.js --network sepolia",
-    "grant:amoy": "hardhat run scripts/grantIssuerRole.js --network amoy"
+    "grant:amoy": "hardhat run scripts/grantIssuerRole.js --network amoy",
+    "set-signer:amoy": "hardhat run scripts/setAttestationSigner.js --network amoy"
   },
   "devDependencies": {
     "@nomicfoundation/hardhat-toolbox": "^5.0.0",

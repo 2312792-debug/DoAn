@@ -85,6 +85,7 @@ const KNOWN_ERROR_SELECTORS = {
   "0x90315de1": "Văn bằng này đã bị thu hồi từ trước, không thể thu hồi/cập nhật thêm lần nữa. (AlreadyRevoked)",
   "0xe2517d3f": "Ví đang dùng không có quyền thực hiện thao tác này (thiếu ISSUER_ROLE hoặc quyền admin). (AccessControlUnauthorizedAccount)",
   "0x6697b232": "Thao tác phân quyền không hợp lệ. (AccessControlBadConfirmation)",
+  "0x815e1d64": "Địa chỉ ký số không hợp lệ (không được là địa chỉ 0x000…0). (InvalidSigner)",
 };
 
 /**
@@ -524,11 +525,44 @@ export async function fetchAttestationRecord(diplomaId) {
   }
 }
 
-/** Kiem tra chu ky NGAY TRONG TRINH DUYET (khong tin Backend): khoi phuc dia chi ky tu chu ky + thong diep. */
-export function checkAttestation(att, chainData) {
+/**
+ * Dia chi ky so CHINH THUC cua nha truong dung de doi chieu. Thu tu uu tien:
+ *  1) Dia chi luu ngay trong Smart Contract (ham attestationSigner(), do admin dat bang setAttestationSigner);
+ *  2) Bien VITE_SIGNER_ADDRESS trong frontend/.env (cach cu - chi la cau hinh cua website nay,
+ *     website gia mao co the tu dat dia chi cua ho vao day).
+ * Hop dong cu (da deploy truoc khi co ham nay) khong co attestationSigner -> tu dong roi ve cach 2.
+ * Tra ve { address, source } voi source = "contract" | "env" | "none".
+ */
+export async function getOfficialSigner() {
+  try {
+    const onChain = await getReadOnlyContract().attestationSigner();
+    if (onChain && onChain !== ethers.ZeroAddress) return { address: onChain, source: "contract" };
+  } catch {
+    /* hop dong cu chua co ham attestationSigner (hoac RPC loi) -> dung cau hinh .env */
+  }
+  const fromEnv = (import.meta.env.VITE_SIGNER_ADDRESS || "").trim();
+  if (fromEnv) return { address: fromEnv, source: "env" };
+  return { address: "", source: "none" };
+}
+
+/** Admin dat dia chi ky so chinh thuc vao Smart Contract (chi DEFAULT_ADMIN_ROLE goi thanh cong). */
+export async function setAttestationSigner(address) {
+  const contract = await getSignerContract();
+  const tx = await contract.setAttestationSigner(address, TX_OVERRIDES);
+  const receipt = await tx.wait();
+  return receipt.hash;
+}
+
+/**
+ * Kiem tra chu ky NGAY TRONG TRINH DUYET (khong tin Backend): khoi phuc dia chi ky tu chu ky + thong diep.
+ * officialInfo = ket qua cua getOfficialSigner(); neu bo trong thi chi dung VITE_SIGNER_ADDRESS (hanh vi cu).
+ * officialOk === null nghia la KHONG co dia chi chinh thuc nao de doi chieu (giao dien phai canh bao, khong bao xanh).
+ */
+export function checkAttestation(att, chainData, officialInfo) {
   const recovered = ethers.verifyMessage(att.message, att.signature);
   const signatureOk = recovered.toLowerCase() === String(att.signer).toLowerCase();
-  const official = (import.meta.env.VITE_SIGNER_ADDRESS || "").trim();
+  const official = (officialInfo ? officialInfo.address : import.meta.env.VITE_SIGNER_ADDRESS || "").trim();
+  const officialSource = officialInfo ? officialInfo.source : official ? "env" : "none";
   const officialOk = official ? recovered.toLowerCase() === official.toLowerCase() : null;
   const statusText = Number(chainData.status) === 1 ? "Valid" : Number(chainData.status) === 2 ? "Revoked" : "Unknown";
   const lines = att.message.split("\n");
@@ -538,5 +572,5 @@ export function checkAttestation(att, chainData) {
     has(`cid:${chainData.cid}`) &&
     has(`issuer:${String(chainData.issuer).toLowerCase()}`) &&
     has(`status:${statusText}`);
-  return { recovered, signatureOk, officialOk, dataOk, official };
+  return { recovered, signatureOk, officialOk, officialSource, dataOk, official };
 }

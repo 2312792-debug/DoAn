@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { ShieldCheck, ShieldAlert, Download, Copy, Check, ExternalLink } from "lucide-react";
-import { getReadOnlyContract, fetchAttestationRecord, checkAttestation } from "../utils/contract";
+import { getReadOnlyContract, fetchAttestationRecord, checkAttestation, getOfficialSigner } from "../utils/contract";
 
 /** Hien chu ky so cua nha truong cho 1 van bang va tu kiem tra ngay trong trinh duyet. */
 export default function SignaturePanel({ diplomaId }) {
@@ -17,8 +17,9 @@ export default function SignaturePanel({ diplomaId }) {
           if (!cancelled) setState({ loading: false, none: true });
           return;
         }
-        const chain = await getReadOnlyContract().getDiploma(diplomaId);
-        const chk = checkAttestation(rec.attestation, chain);
+        // Dia chi ky CHINH THUC: uu tien doc tu Smart Contract (neu da dat), neu khong thi lay tu .env cua frontend.
+        const [chain, official] = await Promise.all([getReadOnlyContract().getDiploma(diplomaId), getOfficialSigner()]);
+        const chk = checkAttestation(rec.attestation, chain, official);
         if (!cancelled) setState({ loading: false, rec, chain, chk });
       } catch (e) {
         console.error(e);
@@ -41,6 +42,9 @@ export default function SignaturePanel({ diplomaId }) {
   const { rec, chk } = state;
   const isRevoked = rec.status === "Revoked" || Number(state.chain?.status) === 2;
   const good = chk.signatureOk && chk.dataOk && chk.officialOk !== false;
+  // Chu ky dung ve mat mat ma nhung KHONG co dia chi chinh thuc de doi chieu (officialOk === null):
+  // khong duoc bao xanh, vi khi do ai tu ky bang khoa cua minh cung "hop le" nhu nhau.
+  const unverified = good && chk.officialOk === null;
 
   const mycryptoPayload = {
     address: rec.attestation.signer,
@@ -88,9 +92,10 @@ export default function SignaturePanel({ diplomaId }) {
     a.click();
     URL.revokeObjectURL(url);
   };
-  const Icon = !good ? ShieldAlert : isRevoked ? ShieldAlert : ShieldCheck;
-  const borderColor = !good ? "#fca5a5" : isRevoked ? "#fdba74" : "#86efac";
-  const bgColor = !good ? "#fef2f2" : isRevoked ? "#fff7ed" : "#f0fdf4";
+  const Icon = !good || unverified || isRevoked ? ShieldAlert : ShieldCheck;
+  const borderColor = !good ? "#fca5a5" : unverified ? "#fde68a" : isRevoked ? "#fdba74" : "#86efac";
+  const bgColor = !good ? "#fef2f2" : unverified ? "#fffbeb" : isRevoked ? "#fff7ed" : "#f0fdf4";
+  const iconColor = !good ? "#dc2626" : unverified ? "#d97706" : isRevoked ? "#ea580c" : "#16a34a";
 
   return (
     <div
@@ -98,9 +103,11 @@ export default function SignaturePanel({ diplomaId }) {
       style={{ marginBottom: 20, borderColor, background: bgColor }}
     >
       <strong style={{ display: "flex", alignItems: "center", gap: 8 }}>
-        <Icon size={18} strokeWidth={2.2} color={!good ? "#dc2626" : isRevoked ? "#ea580c" : "#16a34a"} />
+        <Icon size={18} strokeWidth={2.2} color={iconColor} />
         {!good
           ? "Cảnh báo: chữ ký số KHÔNG hợp lệ"
+          : unverified
+          ? "Chữ ký đúng về mặt mật mã, nhưng CHƯA đối chiếu được địa chỉ chính thức của nhà trường"
           : isRevoked
           ? "Chữ ký số nhà trường: XÁC THỰC QUYẾT ĐỊNH THU HỒI"
           : "Chữ ký số của nhà trường: HỢP LỆ (Văn bằng đang có hiệu lực)"}
@@ -108,6 +115,8 @@ export default function SignaturePanel({ diplomaId }) {
       <p>
         {!good
           ? "Chữ ký không khớp với dữ liệu trên Blockchain hoặc khóa ký không chính chủ."
+          : unverified
+          ? "Hệ thống chưa có địa chỉ ký chính thức để so sánh (chưa được đặt trong Smart Contract hoặc biến VITE_SIGNER_ADDRESS), nên chưa thể khẳng định chữ ký này là của nhà trường. Hãy đối chiếu địa chỉ ký bên dưới với địa chỉ do nhà trường công bố trên kênh chính thức."
           : isRevoked
           ? "Chữ ký số mật mã xác nhận: Nhà trường đã chính thức ký quyết định thu hồi văn bằng này. Chữ ký hợp lệ chứng minh việc thu hồi là quyết định thực tế từ chính chủ nhà trường (không phải lỗi hệ thống hay can thiệp trái phép)."
           : "Chữ ký tạo bằng khoá riêng của nhà trường đặt trên máy chủ hệ thống; website khác không có khoá nên không tạo được chữ ký hợp lệ. Trình duyệt tự kiểm tra, không tin Backend."}
@@ -119,6 +128,7 @@ export default function SignaturePanel({ diplomaId }) {
           <>
             {" "}
             · Đúng địa chỉ chính thức đã công bố: <b>{chk.officialOk ? "Có" : "KHÔNG"}</b>
+            {chk.officialSource === "contract" ? " (nguồn: Smart Contract)" : chk.officialSource === "env" ? " (nguồn: cấu hình website)" : ""}
           </>
         )}
       </p>

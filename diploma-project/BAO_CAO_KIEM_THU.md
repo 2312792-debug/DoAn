@@ -9,7 +9,7 @@ Từ bản này, `diplomaId` = hash của `MÃ_SV-MÃ_NGÀNH-NĂM_TỐT_NGHIỆP
 
 Chạy bằng: `npx hardhat test` (Hardhat + Mocha + Chai + hardhat-chai-matchers), mạng Hardhat cục bộ (mô phỏng EVM đầy đủ, không cần testnet thật).
 
-## Kết quả: 14/14 test PASS (9 kịch bản gốc + 5 kịch bản mới cho issueBatch/liệt kê on-chain)
+## Kết quả: 17/17 test PASS (9 kịch bản gốc + 5 kịch bản cho issueBatch/liệt kê on-chain + 3 kịch bản cho `setAttestationSigner`)
 
 ## Cập nhật quan trọng: cho phép phát hành lại sau khi thu hồi
 
@@ -34,6 +34,9 @@ Trước đây, `issueDiploma` chặn mọi `diplomaId` đã từng được đ�
 | 12 | `issueBatch` — revert khi 3 mảng không cùng độ dài | Gọi với `fileHashes`/`cids` lệch số lượng so với `diplomaIds` → revert `ArrayLengthMismatch` | ✅ PASS |
 | 13 | `issueBatch` — revert khi mảng rỗng; chặn tài khoản không có quyền | Mảng rỗng → revert `EmptyBatch`; ví không có `ISSUER_ROLE` gọi `issueBatch` → revert `AccessControlUnauthorizedAccount` | ✅ PASS |
 | 14 | `diplomaIdAt` / `getDiplomasPage` — liệt kê & phân trang on-chain | Thứ tự đúng, `offset/limit` cắt đúng trang, `offset` vượt quá tổng số trả về mảng rỗng thay vì lỗi | ✅ PASS |
+| 15 | `setAttestationSigner` — admin đặt địa chỉ ký số | Mặc định là địa chỉ 0; admin đặt được, bắn event `AttestationSignerSet`, getter trả đúng, đổi sang địa chỉ khác được | ✅ PASS |
+| 16 | `setAttestationSigner` — chặn không phải admin | Ví không có role, và ví chỉ có `ISSUER_ROLE`, đều bị revert `AccessControlUnauthorizedAccount`; giá trị không đổi | ✅ PASS |
+| 17 | `setAttestationSigner` — từ chối địa chỉ 0 | Revert `InvalidSigner`, địa chỉ chính thức đang đặt không bị xoá | ✅ PASS |
 
 Đã xác thực thêm bằng 1 script độc lập (`verify_new_features.js`) chạy tay trên mạng Hardhat cục bộ qua `ethers.js` (không qua `hardhat test`, do sandbox biên dịch bị chặn tải solc — xem phần "Giới hạn của báo cáo này"): deploy, gọi `issueBatch` 2 lần liên tiếp, kiểm tra sự kiện `DiplomaIssued` phát đúng số lượng, dữ liệu phần tử trùng không bị ghi đè, và `getDiplomasPage` trả đúng dữ liệu kể cả `offset` vượt quá tổng — kết quả khớp 100% với bảng trên.
 

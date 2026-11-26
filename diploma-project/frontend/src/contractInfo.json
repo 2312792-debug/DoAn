@@ -1,5 +1,5 @@
 {
-  "address": "0xff55ab55B35360dbEF89B713889CEbaB4F32D9b3",
+  "address": "0x03B04639DF0FbCEd133367f3bDBbF60892e6dfea",
   "abi": [
     {
       "inputs": [
@@ -66,6 +66,11 @@
       "type": "error"
     },
     {
+      "inputs": [],
+      "name": "InvalidSigner",
+      "type": "error"
+    },
+    {
       "inputs": [
         {
           "internalType": "bytes32",
@@ -75,6 +80,25 @@
       ],
       "name": "NotIssued",
       "type": "error"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": true,
+          "internalType": "address",
+          "name": "signer",
+          "type": "address"
+        },
+        {
+          "indexed": true,
+          "internalType": "address",
+          "name": "setBy",
+          "type": "address"
+        }
+      ],
+      "name": "AttestationSignerSet",
+      "type": "event"
     },
     {
       "anonymous": false,
@@ -277,6 +301,19 @@
           "internalType": "bytes32",
           "name": "",
           "type": "bytes32"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "attestationSigner",
+      "outputs": [
+        {
+          "internalType": "address",
+          "name": "",
+          "type": "address"
         }
       ],
       "stateMutability": "view",
@@ -599,6 +636,19 @@
     {
       "inputs": [
         {
+          "internalType": "address",
+          "name": "signer",
+          "type": "address"
+        }
+      ],
+      "name": "setAttestationSigner",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
           "internalType": "bytes4",
           "name": "interfaceId",
           "type": "bytes4"
@@ -699,5 +749,5 @@
   "network": "amoy",
   "rpcUrl": "https://polygon-amoy-bor-rpc.publicnode.com",
   "explorerBaseUrl": "https://amoy.polygonscan.com",
-  "deployedBlock": 50253429
+  "deployedBlock": 53837232
 }

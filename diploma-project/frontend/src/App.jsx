@@ -26,6 +26,8 @@ import {
   checkIsAdmin,
   grantIssuer as grantIssuerCall,
   revokeIssuer as revokeIssuerCall,
+  setAttestationSigner as setAttestationSignerCall,
+  getOfficialSigner,
   describeTxError,
   explorerContractEventsUrl,
   getRegistryStats,
@@ -35,7 +37,11 @@ import {
   STATUS_LABELS,
 } from "./utils/contract";
 import contractInfo from "./contractInfo.json";
+import { diplomaIdFromUrl } from "./utils/stampQr";
 import "./styles.css";
+
+// Link tu ma QR in trong PDF: /?verify=0x<diplomaId> -> mo thang trang Xac minh va tu tra cuu.
+const QR_DIPLOMA_ID = diplomaIdFromUrl();
 
 const MENU_ITEMS = [
   { id: "dashboard", icon: LayoutDashboard, label: "Tổng quan", access: "public" },
@@ -126,7 +132,7 @@ function useWalletRole() {
 }
 
 export default function App() {
-  const [page, setPage] = useState("dashboard");
+  const [page, setPage] = useState(QR_DIPLOMA_ID ? "verify" : "dashboard");
   const { account, isIssuer, isAdmin, checkingRole, connecting, connectWallet } =
     useWalletRole();
 
@@ -273,7 +279,7 @@ export default function App() {
 
           {page === "verify" && (
             <section className="portal-wrapper">
-              <VerifyPortal />
+              <VerifyPortal qrDiplomaId={QR_DIPLOMA_ID} />
             </section>
           )}
 
@@ -671,6 +677,35 @@ function AdminPage({ account, isAdmin, connecting, connectWallet }) {
   const [revokeLoading, setRevokeLoading] = useState(false);
   const [revokeStatus, setRevokeStatus] = useState("");
 
+  // Dia chi ky so chinh thuc cua nha truong (luu trong Smart Contract)
+  const [signerInput, setSignerInput] = useState("");
+  const [signerCurrent, setSignerCurrent] = useState(null); // { address, source }
+  const [signerLoading, setSignerLoading] = useState(false);
+  const [signerStatus, setSignerStatus] = useState("");
+
+  useEffect(() => {
+    getOfficialSigner().then(setSignerCurrent).catch(() => setSignerCurrent(null));
+  }, []);
+
+  async function handleSetSigner() {
+    if (!signerInput) {
+      setSignerStatus("⚠️ Vui lòng nhập địa chỉ ký số (0x...).");
+      return;
+    }
+    setSignerLoading(true);
+    try {
+      setSignerStatus("✍️ Đang gửi giao dịch, vui lòng xác nhận trên MetaMask...");
+      const hash = await setAttestationSignerCall(signerInput.trim());
+      setSignerStatus(`✅ Đã đặt địa chỉ ký số chính thức. Tx: ${hash}`);
+      setSignerCurrent(await getOfficialSigner());
+    } catch (err) {
+      console.error(err);
+      setSignerStatus("❌ " + describeTxError(err));
+    } finally {
+      setSignerLoading(false);
+    }
+  }
+
   async function handleGrant() {
     if (!targetAddress) {
       setGrantStatus("⚠️ Vui lòng nhập địa chỉ ví cần cấp quyền.");
@@ -800,6 +835,46 @@ function AdminPage({ account, isAdmin, connecting, connectWallet }) {
 
         {grantStatus && <div className="action-status">{grantStatus}</div>}
         {revokeStatus && <div className="action-status">{revokeStatus}</div>}
+
+        <div className="form-section-title" style={{ marginTop: 28 }}>
+          Địa chỉ ký số chính thức của nhà trường
+        </div>
+
+        <div className="admin-note">
+          <strong>Hiện đang dùng</strong>
+          <p>
+            {signerCurrent?.address ? (
+              <>
+                <code>{signerCurrent.address}</code> — nguồn:{" "}
+                {signerCurrent.source === "contract" ? "Smart Contract" : "cấu hình website (VITE_SIGNER_ADDRESS)"}
+              </>
+            ) : (
+              "Chưa đặt. Trang Xác minh sẽ cảnh báo vàng vì không có địa chỉ chính thức để đối chiếu."
+            )}
+          </p>
+          <p>
+            Đây là địa chỉ in ra ở log Backend lúc khởi động. Sau khi đặt, hãy công bố cùng địa chỉ này (và địa chỉ
+            Smart Contract) trên website chính thức của trường để bên thứ ba đối chiếu.
+          </p>
+        </div>
+
+        <div className="field">
+          <label>Địa chỉ ký số (0x...)</label>
+          <input
+            type="text"
+            placeholder="0x..."
+            value={signerInput}
+            onChange={(e) => setSignerInput(e.target.value)}
+          />
+        </div>
+
+        <div className="button-row" style={{ display: "flex", gap: 10, marginTop: 10 }}>
+          <button className="secondary-btn" onClick={handleSetSigner} disabled={signerLoading} style={{ flex: 1 }}>
+            {signerLoading ? "Đang xử lý..." : "Lưu địa chỉ ký số vào Smart Contract"}
+          </button>
+        </div>
+
+        {signerStatus && <div className="action-status">{signerStatus}</div>}
 
         <div className="admin-note" style={{ marginTop: 18 }}>
           <strong>Xem toàn bộ lịch sử phân quyền</strong>

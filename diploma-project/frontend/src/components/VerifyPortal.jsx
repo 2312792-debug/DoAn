@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   Upload,
   Check,
@@ -31,7 +31,7 @@ function shortenAddress(address) {
   return `${address.slice(0, 6)}...${address.slice(-4)}`;
 }
 
-export default function VerifyPortal() {
+export default function VerifyPortal({ qrDiplomaId = "" }) {
   const [studentCode, setStudentCode] = useState("");
   const [programCode, setProgramCode] = useState("");
   const [gradYear, setGradYear] = useState(String(CURRENT_YEAR));
@@ -50,7 +50,37 @@ export default function VerifyPortal() {
   const [lookupError, setLookupError] = useState("");
   const [lookupResult, setLookupResult] = useState(null);
 
+  // Mo tu ma QR trong PDF (/?verify=0x...): da biet san diplomaId nen khong bat nhap lai 5 truong.
+  const [fromQr, setFromQr] = useState(!!qrDiplomaId);
+  const [qrAutoDone, setQrAutoDone] = useState(false);
+
+  useEffect(() => {
+    if (!qrDiplomaId || qrAutoDone) return;
+    setQrAutoDone(true);
+    setLookupLoading(true);
+    lookupDiploma(qrDiplomaId)
+      .then((d) => {
+        setDiplomaId(qrDiplomaId);
+        setLookupResult({
+          statusNum: Number(d.status),
+          statusLabel: STATUS_LABELS[Number(d.status)],
+          cid: d.cid,
+          issuer: d.issuer,
+          issuedAt: Number(d.issuedAt) > 0 ? new Date(Number(d.issuedAt) * 1000).toLocaleString("vi-VN") : "—",
+        });
+      })
+      .catch((err) => {
+        console.error(err);
+        setLookupError("❌ Lỗi khi tra cứu từ mã QR: " + (err.message || "Không xác định"));
+      })
+      .finally(() => setLookupLoading(false));
+  }, [qrDiplomaId, qrAutoDone]);
+
   function currentIdOrError(setErrFn) {
+    // Con dung ma QR va nguoi dung chua go gi vao 5 truong -> dung thang diplomaId tu QR
+    if (fromQr && qrDiplomaId && !studentCode && !programCode && !refNumber) {
+      return qrDiplomaId;
+    }
     if (!studentCode || !programCode || !gradYear || !refNumber) {
       setErrFn(
         "⚠️ Vui lòng nhập đủ mã sinh viên, mã chương trình, năm tốt nghiệp và số hiệu văn bằng."
@@ -221,6 +251,22 @@ export default function VerifyPortal() {
             </p>
           </div>
         </div>
+
+        {fromQr && qrDiplomaId && (
+          <div className="history-note-box" style={{ marginBottom: 16 }}>
+            Bạn mở trang này từ <b>mã QR trong file PDF</b>. Hệ thống đã tra cứu sẵn văn bằng theo mã trong QR, không cần
+            nhập lại thông tin. Để kiểm tra chính file PDF đang cầm có đúng bản gốc không, chỉ cần chọn file bên dưới rồi
+            bấm "Xác minh văn bằng".{" "}
+            <button
+              type="button"
+              className="upload-change-btn"
+              onClick={() => setFromQr(false)}
+              style={{ marginLeft: 6 }}
+            >
+              Tự nhập thông tin
+            </button>
+          </div>
+        )}
 
         {/* Form */}
         <div className="verify-form-grid">
@@ -809,17 +855,17 @@ export default function VerifyPortal() {
 
             <div className="verification-detail">
               <span>Sinh viên</span>
-              <strong>{studentCode}</strong>
+              <strong>{studentCode || "—"}</strong>
             </div>
 
             <div className="verification-detail">
               <span>Chương trình</span>
-              <strong>{programCode}</strong>
+              <strong>{programCode || "—"}</strong>
             </div>
 
             <div className="verification-detail">
               <span>Số hiệu văn bằng</span>
-              <strong>{refNumber}</strong>
+              <strong>{refNumber || "—"}</strong>
             </div>
 
             <div className="verification-detail">

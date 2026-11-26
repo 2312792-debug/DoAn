@@ -31,6 +31,14 @@ contract DiplomaRegistry is AccessControl {
     /// @dev Chong trung lap trong _allIds khi mot diplomaId duoc phat hanh lai sau khi bi thu hoi.
     mapping(bytes32 => bool) private _seen;
 
+    /// @notice Dia chi ky so CHINH THUC cua nha truong (khoa ky dat o Backend, xem backend/signer.js).
+    /// @dev Luu tren chuoi de frontend doc ra doi chieu thay vi tin vao bien cau hinh VITE_SIGNER_ADDRESS
+    /// (website gia mao co the tu dat dia chi cua ho vao .env). Luu y: day KHONG thay the viec nha truong
+    /// cong bo dia chi hop dong o kenh doc lap - website gia van co the tro toi hop dong gia.
+    address public attestationSigner;
+
+    event AttestationSignerSet(address indexed signer, address indexed setBy);
+
     event DiplomaIssued(bytes32 indexed diplomaId, bytes32 fileHash, string cid, address indexed issuer, uint64 issuedAt);
     event DiplomaUpdated(bytes32 indexed diplomaId, bytes32 newFileHash, string newCid, address indexed updater, uint64 updatedAt);
     event DiplomaRevoked(bytes32 indexed diplomaId, string reason, address indexed revoker, uint64 revokedAt);
@@ -40,6 +48,7 @@ contract DiplomaRegistry is AccessControl {
     error AlreadyRevoked(bytes32 diplomaId);
     error ArrayLengthMismatch();
     error EmptyBatch();
+    error InvalidSigner();
 
     constructor(address admin) {
         _grantRole(DEFAULT_ADMIN_ROLE, admin);
@@ -183,5 +192,13 @@ contract DiplomaRegistry is AccessControl {
     /// @notice Thu hoi quyen phat hanh cua mot tai khoan. Chi admin.
     function revokeIssuer(address account) external onlyRole(DEFAULT_ADMIN_ROLE) {
         revokeRole(ISSUER_ROLE, account);
+    }
+
+    /// @notice Dat (hoac doi) dia chi ky so chinh thuc cua nha truong. Chi admin; khong cho dat dia chi 0.
+    /// @dev Moi lan doi deu phat event AttestationSignerSet de lich su thay doi duoc truy vet tren chuoi.
+    function setAttestationSigner(address signer) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        if (signer == address(0)) revert InvalidSigner();
+        attestationSigner = signer;
+        emit AttestationSignerSet(signer, msg.sender);
     }
 }

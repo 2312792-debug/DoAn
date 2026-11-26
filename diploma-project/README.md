@@ -7,7 +7,7 @@
 ```
 diploma-project/
   contracts/DiplomaRegistry.sol   # Smart contract (Solidity, OpenZeppelin AccessControl)
-  test/DiplomaRegistry.test.js    # 14 kịch bản kiểm thử
+  test/DiplomaRegistry.test.js    # 17 kịch bản kiểm thử
   scripts/deploy.js               # Deploy lên testnet + ghi contractInfo.json cho frontend
   scripts/grantIssuerRole.js      # Cấp quyền phát hành cho ví khác
   scripts/demoLocalFlow.js        # Demo toàn bộ luồng trên mạng nội bộ (không cần testnet)
@@ -121,6 +121,12 @@ Cách thiết lập:
 3. Backend cần đọc được `contractInfo.json` (mặc định `frontend/src/contractInfo.json`, hoặc đặt `CONTRACT_INFO_PATH`). Docker Compose đã gắn sẵn file này và thư mục `backend/data`.
 
 API mới của Backend: `GET /api/signer`, `GET /api/stats`, `GET /api/diplomas`, `GET /api/diplomas/:id/history`, `GET /api/diplomas/:id/record`, `POST /api/sync`. Kiểm thử: `cd backend && npm test` (mã hoá 6/6 + chữ ký 4/4).
+
+### Giới hạn của chữ ký số và cách giảm rủi ro (mới)
+
+- **Chữ ký chưa nhúng vào PDF (chưa phải PAdES):** chữ ký là chứng nhận `.json` đi kèm. Để chỉ cần có file PDF vẫn tra ngược được, form **Phát hành / Cập nhật / Nhập hàng loạt** có tuỳ chọn **"In mã QR xác minh vào PDF"** (bật sẵn). QR được in vào góc dưới bên phải trang đầu **trước khi băm**, nên mã băm trên chuỗi là của đúng bản PDF có QR — hãy tải và phát cho sinh viên đúng bản đó (nút "Tải bản PDF đã in QR"). QR chỉ là đường dẫn tới trang xác minh (`/?verify=<diplomaId>`), không phải chữ ký. Đặt `VITE_PUBLIC_URL` trong `frontend/.env` là địa chỉ website chính thức của trường.
+- **Địa chỉ ký chính thức:** biến `VITE_SIGNER_ADDRESS` chỉ là cấu hình của website nên website giả có thể tự đặt ví của họ. Admin nên lưu địa chỉ ký vào Smart Contract bằng `npm run set-signer:amoy` (`SIGNER=0x... npm run set-signer:amoy`) hoặc ở trang **Quản trị**; frontend ưu tiên đọc từ contract, chỉ khi chưa đặt mới dùng `.env`. Nếu cả hai đều trống, trang Xác minh hiện **cảnh báo vàng** ("chưa đối chiếu được địa chỉ chính thức"), không hiện xanh. Nhà trường vẫn phải công bố địa chỉ ký và địa chỉ contract ở kênh độc lập (website chính thức) vì website giả có thể trỏ tới contract giả.
+- **Phải deploy lại contract** (`npm run deploy:amoy`) để có hàm `setAttestationSigner`; contract cũ không có hàm này (frontend tự quay về dùng `.env`).
 
 ## Cách khác: chạy bằng Docker (backend + frontend cùng lúc)
 

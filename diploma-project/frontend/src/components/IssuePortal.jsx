@@ -12,6 +12,7 @@ import {
   Plus,
   RefreshCw,
   ExternalLink,
+  Download,
 } from "lucide-react";
 import { computeFileHash } from "../utils/hash";
 import {
@@ -23,6 +24,7 @@ import {
   describeTxError,
 } from "../utils/contract";
 import { uploadPdfToIpfs } from "../utils/pinataClient";
+import { stampQrOnPdf, downloadFile } from "../utils/stampQr";
 
 const CURRENT_YEAR = new Date().getFullYear();
 
@@ -44,6 +46,9 @@ export default function IssuePortal({ account, isIssuer, connecting, connectWall
   const [loading, setLoading] = useState(false);
   const [status, setStatus] = useState("");
   const [txHash, setTxHash] = useState("");
+  // In ma QR (link xac minh) vao PDF TRUOC khi bam/tai len. Ban co QR moi la ban phat cho sinh vien.
+  const [stampQr, setStampQr] = useState(true);
+  const [stampedFile, setStampedFile] = useState(null);
 
   // Update
   const [updStudentCode, setUpdStudentCode] = useState("");
@@ -54,6 +59,7 @@ export default function IssuePortal({ account, isIssuer, connecting, connectWall
   const [updFile, setUpdFile] = useState(null);
   const [updLoading, setUpdLoading] = useState(false);
   const [updStatus, setUpdStatus] = useState("");
+  const [updStampedFile, setUpdStampedFile] = useState(null);
 
   // Revoke
   const [revokeStudentCode, setRevokeStudentCode] = useState("");
@@ -80,6 +86,7 @@ export default function IssuePortal({ account, isIssuer, connecting, connectWall
 
     setLoading(true);
     setTxHash("");
+    setStampedFile(null);
 
     try {
       const diplomaId = diplomaIdFrom(
@@ -90,11 +97,18 @@ export default function IssuePortal({ account, isIssuer, connecting, connectWall
         refNumber
       );
 
+      // In QR TRUOC khi bam: hash + file tren IPFS phai la cua CHINH ban PDF co QR nay.
+      let fileToIssue = file;
+      if (stampQr) {
+        setStatus("🔳 Đang in mã QR xác minh vào PDF...");
+        fileToIssue = await stampQrOnPdf(file, diplomaId);
+      }
+
       setStatus("🔐 Đang tính mã băm của file...");
-      const fileHash = await computeFileHash(file);
+      const fileHash = await computeFileHash(fileToIssue);
 
       setStatus("📦 Đang mã hoá và tải file lên IPFS...");
-      const { cid } = await uploadPdfToIpfs(file, diplomaId);
+      const { cid } = await uploadPdfToIpfs(fileToIssue, diplomaId);
 
       setStatus(
         "✍️ Đang gửi giao dịch lên Blockchain. Vui lòng xác nhận trên MetaMask..."
@@ -107,6 +121,7 @@ export default function IssuePortal({ account, isIssuer, connecting, connectWall
       );
 
       setTxHash(hash);
+      setStampedFile(stampQr ? fileToIssue : null);
       setStatus("success");
     } catch (err) {
       console.error(err);
@@ -136,6 +151,7 @@ export default function IssuePortal({ account, isIssuer, connecting, connectWall
     }
 
     setUpdLoading(true);
+    setUpdStampedFile(null);
 
     try {
       const diplomaId = diplomaIdFrom(
@@ -146,11 +162,17 @@ export default function IssuePortal({ account, isIssuer, connecting, connectWall
         updRefNumber
       );
 
+      let fileToUpdate = updFile;
+      if (stampQr) {
+        setUpdStatus("🔳 Đang in mã QR xác minh vào PDF mới...");
+        fileToUpdate = await stampQrOnPdf(updFile, diplomaId);
+      }
+
       setUpdStatus("🔐 Đang tính mã băm của file mới...");
-      const fileHash = await computeFileHash(updFile);
+      const fileHash = await computeFileHash(fileToUpdate);
 
       setUpdStatus("📦 Đang mã hoá và tải file mới lên IPFS...");
-      const { cid } = await uploadPdfToIpfs(updFile, diplomaId);
+      const { cid } = await uploadPdfToIpfs(fileToUpdate, diplomaId);
 
       setUpdStatus(
         "✍️ Đang gửi giao dịch cập nhật. Vui lòng xác nhận trên MetaMask..."
@@ -162,6 +184,7 @@ export default function IssuePortal({ account, isIssuer, connecting, connectWall
         cid
       );
 
+      setUpdStampedFile(stampQr ? fileToUpdate : null);
       setUpdStatus(
         `✅ Cập nhật thành công!\nTx: ${hash}\nCID mới: ${cid}`
       );
@@ -507,6 +530,24 @@ export default function IssuePortal({ account, isIssuer, connecting, connectWall
               </label>
             </div>
 
+            <label style={{ display: "flex", gap: 10, alignItems: "flex-start", margin: "14px 0", cursor: "pointer" }}>
+              <input
+                type="checkbox"
+                checked={stampQr}
+                onChange={(e) => setStampQr(e.target.checked)}
+                style={{ marginTop: 4 }}
+              />
+              <span style={{ fontSize: "0.9rem", lineHeight: 1.45 }}>
+                <strong>In mã QR xác minh vào PDF (khuyến nghị)</strong>
+                <br />
+                <span style={{ opacity: 0.75 }}>
+                  Mã QR được in vào góc dưới bên phải trang đầu <em>trước khi</em> băm, để chỉ cần có file PDF là quét
+                  được về trang xác minh. Sau khi phát hành, hãy tải và phát cho sinh viên <b>đúng bản PDF có QR này</b>
+                  (bản gốc chưa có QR sẽ không khớp mã băm).
+                </span>
+              </span>
+            </label>
+
             <div className="issue-process-hint">
               <div>
                 <span>1</span>
@@ -550,6 +591,17 @@ export default function IssuePortal({ account, isIssuer, connecting, connectWall
                     Văn bằng đã được ghi nhận trên Polygon Amoy.
                   </p>
                 </div>
+              </div>
+            )}
+
+            {status === "success" && stampedFile && (
+              <div className="history-note-box" style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+                <button type="button" className="outline-action" onClick={() => downloadFile(stampedFile)}>
+                  <Download size={14} strokeWidth={2} /> Tải bản PDF đã in QR
+                </button>
+                <span style={{ fontSize: "0.85rem" }}>
+                  Đây là bản phải phát cho sinh viên. Mã băm trên Blockchain là của đúng file này.
+                </span>
               </div>
             )}
 
@@ -712,6 +764,11 @@ export default function IssuePortal({ account, isIssuer, connecting, connectWall
               </label>
             </div>
 
+            <label style={{ display: "flex", gap: 10, alignItems: "center", margin: "14px 0", cursor: "pointer", fontSize: "0.9rem" }}>
+              <input type="checkbox" checked={stampQr} onChange={(e) => setStampQr(e.target.checked)} />
+              <span>In mã QR xác minh vào PDF mới (cùng lựa chọn với tab Phát hành)</span>
+            </label>
+
             <button
               className="issue-submit-btn update-btn"
               onClick={handleUpdate}
@@ -737,6 +794,14 @@ export default function IssuePortal({ account, isIssuer, connecting, connectWall
                 }`}
               >
                 {updStatus}
+              </div>
+            )}
+
+            {updStampedFile && updStatus.startsWith("✅") && (
+              <div className="history-note-box" style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+                <button type="button" className="outline-action" onClick={() => downloadFile(updStampedFile)}>
+                  <Download size={14} strokeWidth={2} /> Tải bản PDF mới đã in QR
+                </button>
               </div>
             )}
 

@@ -2,8 +2,8 @@
   "_format": "hh-sol-cache-2",
   "files": {
     "F:\\DoAn1\\diploma-project\\contracts\\DiplomaRegistry.sol": {
-      "lastModificationDate": 1791557188664,
-      "contentHash": "932576e3bc64684bc7ba9bbbeda05200",
+      "lastModificationDate": 1795659866474,
+      "contentHash": "a61b5d0fca4aa95518d4182b69a726f3",
       "sourceName": "contracts/DiplomaRegistry.sol",
       "solcConfig": {
         "version": "0.8.20",

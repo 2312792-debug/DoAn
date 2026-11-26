@@ -16,7 +16,16 @@ const FRONTEND_ORIGIN = process.env.FRONTEND_ORIGIN || "http://localhost:5173";
 const MAX_FILE_SIZE = 15 * 1024 * 1024; // 15MB
 const DIPLOMA_ID_RE = /^0x[0-9a-fA-F]{64}$/;
 
-app.use(cors({ origin: FRONTEND_ORIGIN }));
+const allowedOrigins = FRONTEND_ORIGIN.split(",").map((s) => s.trim()).filter(Boolean);
+app.use(
+  cors({
+    origin: allowedOrigins.includes("*")
+      ? "*"
+      : allowedOrigins.length === 1
+      ? allowedOrigins[0]
+      : allowedOrigins,
+  })
+);
 app.use(express.json());
 
 const upload = multer({
